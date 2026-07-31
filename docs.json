@@ -1,0 +1,49 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "kenpachi",
+  "theme": "mint",
+  "colors": {
+    "primary": "#10B981",
+    "light": "#34D399",
+    "dark": "#059669"
+  },
+  "topbarLinks": [
+    {
+      "name": "npm",
+      "url": "https://www.npmjs.com/package/kenpachi"
+    }
+  ],
+  "topbarCta": {
+    "name": "GitHub",
+    "url": "https://github.com/Vaibhav2024/kenpachi"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "installation",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Core Concepts",
+        "pages": [
+          "concepts/time-travel",
+          "concepts/self-healing",
+          "concepts/saga-rollbacks",
+          "concepts/dynamic-tools"
+        ]
+      },
+      {
+        "group": "API Reference",
+        "pages": [
+          "api-reference/agent",
+          "api-reference/define-tool",
+          "api-reference/providers",
+          "api-reference/kenpachi"
+        ]
+      }
+    ]
+  }
+}

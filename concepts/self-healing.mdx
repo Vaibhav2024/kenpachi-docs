@@ -1,0 +1,42 @@
+---
+title: "Self-Healing Tool Calls"
+description: "Automatically recover from malformed tool arguments emitted by models."
+---
+
+When an LLM produces arguments that fail validation against your Zod schema, `kenpachi` intercepts the error instead of throwing a runtime exception.
+
+---
+
+## Healing Lifecycle
+
+1. **Schema Check**: Arguments are evaluated using `ZodType.safeParse()`.
+2. **Coercion / Repair Pass**: If validation fails, `kenpachi` performs type coercion on simple types (e.g., converting string representations of numbers like `"42"` into numerical `42`).
+3. **Graceful Fallback**: If repair attempts are exhausted, the formatted Zod error is returned to the model as an error tool result, allowing it to re-emit fixed arguments.
+
+---
+
+## Example
+
+```typescript
+import { z } from "zod";
+import { Agent, defineTool, createOpenAIProvider } from "kenpachi";
+
+const multiply = defineTool({
+  name: "multiply",
+  description: "Multiplies two numbers",
+  schema: z.object({
+    a: z.number(),
+    b: z.number(),
+  }),
+  async execute({ a, b }) {
+    return a * b;
+  },
+});
+
+const provider = createOpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! });
+const agent = new Agent(provider, [multiply]);
+
+// If the model emits stringified parameters { a: "6", b: "7" },
+// kenpachi automatically coerces them and completes execution cleanly.
+const result = await agent.run("Multiply 6 and 7");
+```

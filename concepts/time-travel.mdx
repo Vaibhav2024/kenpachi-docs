@@ -1,0 +1,47 @@
+---
+title: "Time-Travel Context"
+description: "Branch and rewind conversation states without re-executing past LLM turns."
+---
+
+Every turn executed by `kenpachi` is automatically snapshotted in memory. You can rewind conversation state back to any prior snapshot and branch off in a new direction without re-querying the model or paying extra token costs for previous turns.
+
+## How It Works
+
+1. Run an agent conversation normally.
+2. Retrieve snapshots from `agent.context.listSnapshots()`.
+3. Call `agent.context.branchAt(turnIndex)` to retrieve a clean, isolated context branch starting from that turn.
+
+---
+
+## Example
+
+```typescript
+import { Agent, createOpenAIProvider } from "kenpachi";
+
+const provider = createOpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! });
+const agent = new Agent(provider, []);
+
+async function main() {
+  // Turn 0
+  await agent.run("Hello, my favorite color is green.");
+
+  // Turn 1
+  await agent.run("What is my favorite color?");
+
+  // Get snapshots
+  const snapshots = agent.context.listSnapshots();
+  const firstTurn = snapshots[0];
+
+  // Branch back to after Turn 0
+  const branchedContext = agent.context.branchAt(firstTurn.turnIndex);
+
+  // Create a new agent sharing the branched context
+  const branchedAgent = new Agent(provider, [], branchedContext);
+
+  // Resume down a different conversation path
+  const response = await branchedAgent.run("Forget my favorite color. What is 2 + 2?");
+  console.log(response.text);
+}
+
+main();
+```

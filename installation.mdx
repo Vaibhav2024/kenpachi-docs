@@ -1,0 +1,43 @@
+---
+title: "Installation"
+description: "Get started with kenpachi in your TypeScript project."
+---
+
+## Requirements
+
+Before installing, ensure your environment meets the following requirements:
+
+- **Node.js**: `v18.0.0` or higher
+- **npm**: `v9.0.0` or higher
+- **TypeScript**: `v5.0.0` or higher
+
+---
+
+## Package Installation
+
+Install `kenpachi` along with `zod` (used for type safety and runtime schema validation):
+
+<CodeGroup>
+```bash npm
+npm install kenpachi zod
+```
+
+```bash pnpm
+pnpm add kenpachi zod
+```
+
+```bash yarn
+yarn add kenpachi zod
+```
+</CodeGroup>
+
+---
+
+## Setting Up Environment Keys
+
+If you are using live providers like Anthropic or OpenAI, set your API keys as environment variables:
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+export OPENAI_API_KEY="sk-proj-..."
+```

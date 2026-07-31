@@ -1,0 +1,46 @@
+---
+title: "Saga Rollbacks"
+description: "Undo earlier steps in a multi-tool execution batch if a subsequent step fails."
+---
+
+When an LLM attempts multiple tool calls during a single turn (e.g., reserving a hotel room and charging a credit card), failure at a later step can leave external systems in an inconsistent state.
+
+`kenpachi` provides saga-style compensation mechanics. You can register an undo handler inside `ToolContext` during tool execution. If any subsequent tool in the turn fails, all previously registered undo handlers in that turn execute in reverse order.
+
+---
+
+## Example
+
+```typescript
+import { z } from "zod";
+import { Agent, defineTool } from "kenpachi";
+
+const reserveSeat = defineTool({
+  name: "reserve_seat",
+  description: "Reserves a seat for a user",
+  schema: z.object({ seatId: z.string() }),
+  async execute({ seatId }, ctx) {
+    console.log(`Reserved seat ${seatId}`);
+
+    // Register compensating action
+    ctx.registerCompensation(async () => {
+      console.log(`Rollback: Released seat ${seatId}`);
+    });
+
+    return { status: "held", seatId };
+  },
+});
+
+const processPayment = defineTool({
+  name: "process_payment",
+  description: "Charges user payment card",
+  schema: z.object({ amount: z.number() }),
+  async execute({ amount }) {
+    // Payment fails
+    throw new Error("Card declined: Insufficient funds");
+  },
+});
+
+// If the model calls reserveSeat and processPayment together,
+// the reserveSeat hold is automatically released when processPayment throws.
+```

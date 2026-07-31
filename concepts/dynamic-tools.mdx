@@ -1,0 +1,44 @@
+---
+title: "Dynamic Tool Synthesis"
+description: "Enable agents to synthesize pure-logic tools securely at runtime."
+---
+
+`kenpachi` permits models to author pure-logic functions on the fly while restricting network access and key handling through a pre-configured `ConnectorRegistry`.
+
+---
+
+## Security Seam
+
+- **Model Capabilities**: The model writes algorithmic glue code, string parsing, or data formatting logic.
+- **System Boundaries**: Secrets and API keys remain strictly stored inside host environment variables (`process.env`). Synthesized tools reference external endpoints solely by connector alias.
+
+---
+
+## Example Setup
+
+```typescript
+import { ConnectorRegistry, synthesizeTool } from "kenpachi";
+
+// 1. Host application registers external connection details
+const registry = new ConnectorRegistry();
+registry.register("openweather", {
+  baseUrl: "[https://api.openweathermap.org/data/2.5](https://api.openweathermap.org/data/2.5)",
+  authEnvVar: "OPENWEATHER_API_KEY",
+  description: "OpenWeatherMap REST endpoint",
+});
+
+// 2. Synthesize tool using runtime spec
+const synthesizedTool = synthesizeTool(
+  {
+    name: "fetch_weather_metric",
+    description: "Fetches weather and formats output",
+    parameters: { city: "string" },
+    jsBody: `
+      const data = await callConnector("/weather?q=" + args.city);
+      return { tempC: data.main.temp - 273.15 };
+    `,
+    connector: "openweather",
+  },
+  registry
+);
+```

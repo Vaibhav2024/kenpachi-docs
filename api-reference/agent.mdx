@@ -1,0 +1,64 @@
+---
+title: "Agent"
+description: "API reference for the primary Agent orchestrator."
+---
+
+The `Agent` class coordinates model interactions, maintains conversation state, handles tool execution, and manages repair and rollback loops.
+
+```typescript
+import { Agent } from "kenpachi";
+```
+
+---
+
+## Constructor Parameters
+
+<ParamField path="provider" type="ModelProvider" required>
+  The LLM adapter used to complete model turns (e.g., `createAnthropicProvider` or `createOpenAIProvider`).
+</ParamField>
+
+<ParamField path="tools" type="Tool[]" required>
+  An array of tools available to the model during execution.
+</ParamField>
+
+<ParamField path="context" type="AgentContext" default="new AgentContext()">
+  Optional pre-initialized or branched conversation context.
+</ParamField>
+
+---
+
+## Methods
+
+### `run(userInput, options)`
+
+Executes model completion and tool calls until the model returns a final text output or reaches maximum turns.
+
+#### Parameters
+
+<ParamField path="userInput" type="string" required>
+  The user prompt string sent to the agent.
+</ParamField>
+
+<ParamField path="options" type="AgentRunOptions">
+  Configuration options for controlling run behavior:
+  
+  <Expandable title="AgentRunOptions Properties">
+    <ResponseField name="maxTurns" type="number" default="8">
+      Maximum number of model completion turns allowed for this run.
+    </ResponseField>
+    
+    <ResponseField name="maxToolRepairAttempts" type="number" default="2">
+      Maximum retry attempts for repairing malformed tool arguments.
+    </ResponseField>
+    
+    <ResponseField name="onEvent" type="(event: AgentEvent) => void">
+      Callback invoked on internal execution events (`turn_start`, `tool_call`, `rollback_start`, etc.).
+    </ResponseField>
+  </Expandable>
+</ParamField>
+
+#### Return Value
+
+<ResponseField name="Promise<Message>" type="Promise<Message>">
+  Returns the final assistant `Message` object.
+</ResponseField>

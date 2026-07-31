@@ -1,0 +1,52 @@
+---
+title: "Providers"
+description: "API reference for model provider integration adapters."
+---
+
+`kenpachi` provides zero-dependency REST adapters for Anthropic and OpenAI.
+
+---
+
+## Anthropic Provider
+
+```typescript
+import { createAnthropicProvider } from "kenpachi";
+
+const provider = createAnthropicProvider({
+  apiKey: process.env.ANTHROPIC_API_KEY!,
+  model: "claude-sonnet-4-6", // Optional
+});
+```
+
+### Options
+
+<ParamField path="apiKey" type="string" required>
+  Anthropic API key string.
+</ParamField>
+
+<ParamField path="model" type="string" default="claude-sonnet-4-6">
+  Model name override string.
+</ParamField>
+
+---
+
+## OpenAI Provider
+
+```typescript
+import { createOpenAIProvider } from "kenpachi";
+
+const provider = createOpenAIProvider({
+  apiKey: process.env.OPENAI_API_KEY!,
+  model: "gpt-4o", // Optional
+});
+```
+
+### Options
+
+<ParamField path="apiKey" type="string" required>
+  OpenAI API key string.
+</ParamField>
+
+<ParamField path="model" type="string" default="gpt-4o">
+  Model name override string.
+</ParamField>

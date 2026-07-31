@@ -1,0 +1,67 @@
+---
+title: "Quickstart"
+description: "Learn how to make basic model turns and execute tools with kenpachi."
+---
+
+This guide walks you through sending a simple prompt and defining an automated tool call.
+
+---
+
+## 1. Simple Text Response
+
+To execute a single-turn text completion without tools, instantiate a provider and pass it to the `Agent`:
+
+```typescript
+import { Agent, createAnthropicProvider } from "kenpachi";
+
+const provider = createAnthropicProvider({
+  apiKey: process.env.ANTHROPIC_API_KEY!,
+});
+
+const agent = new Agent(provider, []);
+
+async function main() {
+  const response = await agent.run("Write a one-sentence greeting.");
+  console.log(response.text);
+}
+
+main();
+```
+
+---
+
+## 2. Making Tool Calls
+
+To allow the model to fetch data or perform actions, define a tool using `defineTool` and pass it to the agent.
+
+```typescript
+import { z } from "zod";
+import { Agent, defineTool, createAnthropicProvider } from "kenpachi";
+
+// Define the tool schema and implementation
+const getWeather = defineTool({
+  name: "get_weather",
+  description: "Fetches current weather for a specified location.",
+  schema: z.object({
+    city: z.string().describe("The name of the city"),
+  }),
+  async execute({ city }) {
+    // Perform data fetching or external API execution
+    return { city, temperatureC: 24, condition: "Sunny" };
+  },
+});
+
+async function main() {
+  const provider = createAnthropicProvider({
+    apiKey: process.env.ANTHROPIC_API_KEY!,
+  });
+
+  const agent = new Agent(provider, [getWeather]);
+
+  // The agent automatically runs the tool call loop until completion
+  const response = await agent.run("What's the weather in Nashik?");
+  console.log(response.text);
+}
+
+main();
+```
