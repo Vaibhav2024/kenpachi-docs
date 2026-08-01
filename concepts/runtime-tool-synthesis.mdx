@@ -1,62 +1,62 @@
 ---
-title: "Runtime Tool Synthesis"
-description: "Allow AI agents to safely generate and run pure-logic tools on the fly at runtime."
+title: "Sandboxed Tool Runtime"
+description: "Allow AI agents to generate and execute temporary, sandboxed helper tools safely at runtime."
 ---
 
-When building autonomous agents, pre-defining every single tool in code ahead of time is impossible. Sometimes, an agent needs a specialized helper function—like a complex currency conversion, data formatter, or mathematical calculator—that you didn't anticipate.
+When building autonomous agents, pre-defining every tool ahead of time is impossible. Users will inevitably ask your agent to perform specialized calculations, data formatting, or custom logic that you didn't code in advance.
 
-**Dynamic Tool Synthesis** enables `kenpachi` agents to author small, pure-logic JavaScript functions dynamically while running. 
+**Sandboxed Tool Runtime** enables `kenpachi` agents to author small, custom JavaScript functions **on the fly** while running.
 
-To keep your application safe, synthesized code runs in a sandboxed V8 execution context with **zero network access** and **no access to raw API keys**.
+To protect your system, generated code executes in an isolated V8 sandbox (`node:vm`) with **zero direct network access** and **no exposure to secret API keys**.
 
 <Note>
-**When should you use this?** Use dynamic synthesis when your agent needs temporary, specialized code execution (math, data transformations, string parsing) or needs to interact with pre-approved external APIs without exposing secrets.
+**When should you use this?** Use sandboxed tool execution when your agent needs to perform custom math, parse strings, or run logic tailored to a user request without cluttering your codebase with static tools.
 </Note>
 
 ---
 
-## The Security Architecture
+## How It Works (The Safe vs. The Sandbox)
 
-`kenpachi` enforces a strict separation between **Logic** (authored by the AI model) and **Credentials** (managed by your server):
+To keep your backend secure, `kenpachi` strictly separates **API Credentials** from **Model Logic**:
 
-- **Model Sandbox**: The LLM writes pure algorithmic logic. It has no `require`, no filesystem access, and cannot make arbitrary `fetch()` calls to the internet.
-- **Connector Registry**: Your backend pre-registers allowed third-party API endpoints and maps them to environment variables (e.g., `process.env.STRIPE_SECRET_KEY`).
-- **Secure Bridge**: If the synthesized tool needs external data, it calls `callConnector(path)`. `kenpachi` intercepts the request server-side, attaches the secret token in the request headers, and fetches the data—**the LLM never sees or touches the API key**.
+1. **The Connector (Your Safe):** Lives on your backend server. It securely maps an endpoint alias (like `"store_api"`) to host environment variables (`process.env.STORE_API_KEY`).
+2. **The V8 Sandbox (The Isolated Room):** The AI model writes pure algorithmic JavaScript. The sandbox prevents the code from accessing your host filesystem, running `require()`, or making unauthorized internet requests.
+3. **The `callConnector` Bridge:** When the sandboxed code needs external data, it calls `callConnector("/path")`. `kenpachi` handles the request on the host server, injects the secret key, and returns the result—**the LLM never sees or touches your private API key**.
 
 ---
 
-## Real-World Example: E-Commerce Pricing & Tax Calculator
+## Real-World Example: Dynamic Discount & Currency Calculator
 
-Imagine an AI shopping assistant that needs to fetch a product's price from a store API, apply a tier-based discount code, convert the currency to Euros, and calculate tax.
+Imagine a shopping assistant that needs to fetch a product's price, apply a 15% VIP discount code, and convert the price to Euros.
 
-Instead of writing 5 different static tools, you register **one secure connector** for your store API and let `kenpachi` synthesize the calculation logic.
+Instead of coding 3 separate static tools, you register **one secure connector** for your store API and let `kenpachi` generate the calculation logic on demand.
 
-### 1. Register the API Endpoint (Server-Side)
+### Step 1: Register the API Endpoint (Server-Side)
 
-First, register your backend store API in your application code. This maps the alias `"store_api"` to your base URL and secret key:
+Register your store API endpoint in your server initialization code:
 
 ```typescript title="server.ts"
 import { ConnectorRegistry } from "kenpachi";
 
 export const registry = new ConnectorRegistry();
 
-// Register the store API connector
+// Register the store API connector on the host
 registry.register("store_api", {
   baseUrl: "[https://api.yourstore.com/v1](https://api.yourstore.com/v1)",
-  authEnvVar: "STORE_API_SECRET_KEY", // Read from process.env on host, never sent to the LLM
+  authEnvVar: "STORE_API_SECRET_KEY", // Read from host environment variables
   description: "Internal e-commerce store catalog and pricing API",
 });
 ```
 
-### 2. Synthesize and Execute the Dynamic Tool
+### Step 2: Execute the Sandboxed Tool
 
-When the agent runs, it generates a specification with the exact JS logic needed for the current customer request:
+When the agent runs, it generates the tool specification and logic needed for the current request:
 
 ```typescript title="agent-runner.ts"
 import { synthesizeTool } from "kenpachi";
 import { registry } from "./server.js";
 
-// The synthesized tool specification (can be generated dynamically by the model)
+// Generate or instantiate the sandboxed tool
 const calculateFinalOrderPrice = synthesizeTool(
   {
     name: "calculate_discounted_checkout",
@@ -65,13 +65,13 @@ const calculateFinalOrderPrice = synthesizeTool(
       productId: "string",
       eurExchangeRate: "number",
     },
-    // Pure logic body executed in the sandbox
+    // Pure logic body executed safely inside the V8 sandbox
     jsBody: `
-      // 1. callConnector automatically appends baseUrl and injects STORE_API_SECRET_KEY
+      // 1. callConnector appends the base URL and injects the API key automatically
       const product = await callConnector("/products/" + args.productId);
       
-      // 2. Perform custom business math
-      const discountedUSD = product.price * 0.85; // 15% off
+      // 2. Perform custom business calculations
+      const discountedUSD = product.price * 0.85; // 15% discount
       const finalEUR = discountedUSD * args.eurExchangeRate;
 
       return {
@@ -80,12 +80,11 @@ const calculateFinalOrderPrice = synthesizeTool(
         finalPriceEUR: Number(finalEUR.toFixed(2))
       };
     `,
-    connector: "store_api", // References the registered connector alias
+    connector: "store_api", // References the registered server connector
   },
   registry
 );
 
-// Execute the synthesized tool like any standard tool
 async function run() {
   const result = await calculateFinalOrderPrice.execute(
     { productId: "prod_99182", eurExchangeRate: 0.92 },
@@ -101,23 +100,20 @@ run();
 
 ---
 
-## How `callConnector` Works
+## What `callConnector` Handles Automatically
 
-When writing or generating the `jsBody` code:
-
-- You do **not** write raw domain URLs (`https://api.yourstore.com/v1`).
-- You do **not** attach authorization headers manually.
-- You simply call `await callConnector("/relative-path")`.
-
-`kenpachi` automatically expands `/products/prod_99182` into `https://api.yourstore.com/v1/products/prod_99182` and injects `Authorization: Bearer <process.env.STORE_API_SECRET_KEY>` on the host server before sending the HTTP request.
+Inside the `jsBody` code block:
+- **No full URLs:** Write clean relative paths like `/products/...` instead of `https://api.yourstore.com/v1/products/...`.
+- **No header management:** Authorization tokens and secret keys are injected on the server side automatically.
+- **No network leaks:** The sandbox cannot make unapproved `fetch()` requests to outside domains.
 
 ---
 
-## Summary of Benefits
+## Comparison
 
-| Feature | Standard Static Tools | Dynamic Tool Synthesis (`kenpachi`) |
+| Feature | Standard Static Tools | Sandboxed Tool Runtime (`kenpachi`) |
 | :--- | :--- | :--- |
-| **Flexibility** | High effort (Must code every tool in advance) | Instant (Synthesizes custom glue code on demand) |
-| **API Keys** | Must be handled in tool execution code | Hidden safely inside host `process.env` |
-| **Network Safety** | Tools can access full internet | Restricted to host-approved connectors only |
-| **Execution** | Runs in main process | Sandboxed V8 engine (`node:vm`) |
+| **Adaptability** | Pre-coded ahead of time | Synthesizes custom logic on demand |
+| **Secret Management** | Handled inside tool logic | Isolated safely in host environment variables |
+| **Network Boundaries** | Unrestricted process access | Restricted exclusively to approved connectors |
+| **Execution Environment** | Main Application Process | Isolated V8 Sandbox (`node:vm`) |
