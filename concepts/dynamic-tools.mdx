@@ -1,44 +1,123 @@
 ---
 title: "Dynamic Tool Synthesis"
-description: "Enable agents to synthesize pure-logic tools securely at runtime."
+description: "Allow AI agents to safely generate and run pure-logic tools on the fly at runtime."
 ---
 
-`kenpachi` permits models to author pure-logic functions on the fly while restricting network access and key handling through a pre-configured `ConnectorRegistry`.
+When building autonomous agents, pre-defining every single tool in code ahead of time is impossible. Sometimes, an agent needs a specialized helper function—like a complex currency conversion, data formatter, or mathematical calculator—that you didn't anticipate.
+
+**Dynamic Tool Synthesis** enables `kenpachi` agents to author small, pure-logic JavaScript functions dynamically while running. 
+
+To keep your application safe, synthesized code runs in a sandboxed V8 execution context with **zero network access** and **no access to raw API keys**.
+
+<Note>
+**When should you use this?** Use dynamic synthesis when your agent needs temporary, specialized code execution (math, data transformations, string parsing) or needs to interact with pre-approved external APIs without exposing secrets.
+</Note>
 
 ---
 
-## Security Seam
+## The Security Architecture
 
-- **Model Capabilities**: The model writes algorithmic glue code, string parsing, or data formatting logic.
-- **System Boundaries**: Secrets and API keys remain strictly stored inside host environment variables (`process.env`). Synthesized tools reference external endpoints solely by connector alias.
+`kenpachi` enforces a strict separation between **Logic** (authored by the AI model) and **Credentials** (managed by your server):
+
+- **Model Sandbox**: The LLM writes pure algorithmic logic. It has no `require`, no filesystem access, and cannot make arbitrary `fetch()` calls to the internet.
+- **Connector Registry**: Your backend pre-registers allowed third-party API endpoints and maps them to environment variables (e.g., `process.env.STRIPE_SECRET_KEY`).
+- **Secure Bridge**: If the synthesized tool needs external data, it calls `callConnector(path)`. `kenpachi` intercepts the request server-side, attaches the secret token in the request headers, and fetches the data—**the LLM never sees or touches the API key**.
 
 ---
 
-## Example Setup
+## Real-World Example: E-Commerce Pricing & Tax Calculator
 
-```typescript
-import { ConnectorRegistry, synthesizeTool } from "kenpachi";
+Imagine an AI shopping assistant that needs to fetch a product's price from a store API, apply a tier-based discount code, convert the currency to Euros, and calculate tax.
 
-// 1. Host application registers external connection details
-const registry = new ConnectorRegistry();
-registry.register("openweather", {
-  baseUrl: "[https://api.openweathermap.org/data/2.5](https://api.openweathermap.org/data/2.5)",
-  authEnvVar: "OPENWEATHER_API_KEY",
-  description: "OpenWeatherMap REST endpoint",
+Instead of writing 5 different static tools, you register **one secure connector** for your store API and let `kenpachi` synthesize the calculation logic.
+
+### 1. Register the API Endpoint (Server-Side)
+
+First, register your backend store API in your application code. This maps the alias `"store_api"` to your base URL and secret key:
+
+```typescript title="server.ts"
+import { ConnectorRegistry } from "kenpachi";
+
+export const registry = new ConnectorRegistry();
+
+// Register the store API connector
+registry.register("store_api", {
+  baseUrl: "[https://api.yourstore.com/v1](https://api.yourstore.com/v1)",
+  authEnvVar: "STORE_API_SECRET_KEY", // Read from process.env on host, never sent to the LLM
+  description: "Internal e-commerce store catalog and pricing API",
 });
+```
 
-// 2. Synthesize tool using runtime spec
-const synthesizedTool = synthesizeTool(
+### 2. Synthesize and Execute the Dynamic Tool
+
+When the agent runs, it generates a specification with the exact JS logic needed for the current customer request:
+
+```typescript title="agent-runner.ts"
+import { synthesizeTool } from "kenpachi";
+import { registry } from "./server.js";
+
+// The synthesized tool specification (can be generated dynamically by the model)
+const calculateFinalOrderPrice = synthesizeTool(
   {
-    name: "fetch_weather_metric",
-    description: "Fetches weather and formats output",
-    parameters: { city: "string" },
+    name: "calculate_discounted_checkout",
+    description: "Fetches product base price, applies a 15% VIP discount, and converts to EUR",
+    parameters: {
+      productId: "string",
+      eurExchangeRate: "number",
+    },
+    // Pure logic body executed in the sandbox
     jsBody: `
-      const data = await callConnector("/weather?q=" + args.city);
-      return { tempC: data.main.temp - 273.15 };
+      // 1. callConnector automatically appends baseUrl and injects STORE_API_SECRET_KEY
+      const product = await callConnector("/products/" + args.productId);
+      
+      // 2. Perform custom business math
+      const discountedUSD = product.price * 0.85; // 15% off
+      const finalEUR = discountedUSD * args.eurExchangeRate;
+
+      return {
+        productName: product.name,
+        originalPriceUSD: product.price,
+        finalPriceEUR: Number(finalEUR.toFixed(2))
+      };
     `,
-    connector: "openweather",
+    connector: "store_api", // References the registered connector alias
   },
   registry
 );
+
+// Execute the synthesized tool like any standard tool
+async function run() {
+  const result = await calculateFinalOrderPrice.execute(
+    { productId: "prod_99182", eurExchangeRate: 0.92 },
+    { metadata: {}, registerCompensation: () => {} }
+  );
+
+  console.log(result);
+  // Output: { productName: "Wireless Headphones", originalPriceUSD: 100, finalPriceEUR: 78.2 }
+}
+
+run();
 ```
+
+---
+
+## How `callConnector` Works
+
+When writing or generating the `jsBody` code:
+
+- You do **not** write raw domain URLs (`https://api.yourstore.com/v1`).
+- You do **not** attach authorization headers manually.
+- You simply call `await callConnector("/relative-path")`.
+
+`kenpachi` automatically expands `/products/prod_99182` into `https://api.yourstore.com/v1/products/prod_99182` and injects `Authorization: Bearer <process.env.STORE_API_SECRET_KEY>` on the host server before sending the HTTP request.
+
+---
+
+## Summary of Benefits
+
+| Feature | Standard Static Tools | Dynamic Tool Synthesis (`kenpachi`) |
+| :--- | :--- | :--- |
+| **Flexibility** | High effort (Must code every tool in advance) | Instant (Synthesizes custom glue code on demand) |
+| **API Keys** | Must be handled in tool execution code | Hidden safely inside host `process.env` |
+| **Network Safety** | Tools can access full internet | Restricted to host-approved connectors only |
+| **Execution** | Runs in main process | Sandboxed V8 engine (`node:vm`) |
