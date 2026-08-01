@@ -29,10 +29,10 @@
       {
         "group": "Core Concepts",
         "pages": [
-          "concepts/time-travel",
-          "concepts/self-healing",
-          "concepts/saga-rollbacks",
-          "concepts/dynamic-tools"
+          "concepts/state-checkpointing",
+          "concepts/schema-validation-recovery",
+          "concepts/multi-step-rollback",
+          "concepts/runtime-tool-synthesis"
         ]
       },
       {
