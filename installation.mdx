@@ -1,21 +1,18 @@
 ---
 title: "Installation"
-description: "Get started with kenpachi in your TypeScript project."
+description: "Add kenpachi to your TypeScript project in one command."
 ---
 
 ## Requirements
 
-Before installing, ensure your environment meets the following requirements:
-
-- **Node.js**: `v18.0.0` or higher
-- **npm**: `v9.0.0` or higher
-- **TypeScript**: `v5.0.0` or higher
+- **Node.js** 18+
+- **TypeScript** 5+ (recommended)
 
 ---
 
-## Package Installation
+## Install
 
-Install `kenpachi` along with `zod` (used for type safety and runtime schema validation):
+kenpachi uses [Zod](https://zod.dev) for tool schemas — install both:
 
 <CodeGroup>
 ```bash npm
@@ -33,11 +30,34 @@ yarn add kenpachi zod
 
 ---
 
-## Setting Up Environment Keys
+## API keys
 
-If you are using live providers like Anthropic or OpenAI, set your API keys as environment variables:
+Set environment variables for the provider you use:
 
 ```bash
+# Anthropic (Claude)
 export ANTHROPIC_API_KEY="sk-ant-..."
+
+# OpenAI (GPT)
 export OPENAI_API_KEY="sk-proj-..."
 ```
+
+In Node, load them with `process.env.ANTHROPIC_API_KEY` — or use a `.env` file with your preferred loader (`dotenv`, etc.).
+
+---
+
+## Verify the install
+
+```typescript
+import { Agent, createAnthropicProvider } from "kenpachi";
+
+const agent = new Agent(
+  createAnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),
+  []
+);
+
+const result = await agent.run("Say hello in one sentence.");
+console.log(result.text);
+```
+
+If that prints a response, you're ready for the [Quickstart](/quickstart).

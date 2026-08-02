@@ -40,7 +40,7 @@ export const registry = new ConnectorRegistry();
 
 // Register the store API connector on the host
 registry.register("store_api", {
-  baseUrl: "[https://api.yourstore.com/v1](https://api.yourstore.com/v1)",
+  baseUrl: "https://api.yourstore.com/v1",
   authEnvVar: "STORE_API_SECRET_KEY", // Read from host environment variables
   description: "Internal e-commerce store catalog and pricing API",
 });

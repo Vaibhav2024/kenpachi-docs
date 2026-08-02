@@ -3,9 +3,11 @@ title: "Multi-Step Rollbacks"
 description: "Undo earlier steps in a multi-tool execution batch if a subsequent step fails."
 ---
 
-When an LLM attempts multiple tool calls during a single turn (e.g., reserving a hotel room and charging a credit card), failure at a later step can leave external systems in an inconsistent state.
+When a model calls several tools in one turn — reserve a seat, then charge a card — a failure on step two can leave step one's side effects in place. kenpachi implements **saga-style rollback**: register an undo in each tool, and if a later tool in the same batch fails, undos run in reverse order.
 
-`kenpachi` provides saga-style compensation mechanics. You can register an undo handler inside `ToolContext` during tool execution. If any subsequent tool in the turn fails, all previously registered undo handlers in that turn execute in reverse order.
+<Tip>
+Think of `registerCompensation` as "if anything after me fails, run this cleanup."
+</Tip>
 
 ---
 

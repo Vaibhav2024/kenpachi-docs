@@ -1,12 +1,12 @@
 ---
 title: "State Checkpointing & Branching"
-description: "Branch, rewind, and restore agent conversation states without re-executing past LLM turns."
+description: "Undo, edit, or branch conversations without paying for the same turns twice."
 ---
 
-Every turn processed by `kenpachi` is automatically snapshotted in memory. Time-Travel Context allows you to rewind an agent's history back to any previous state and branch off in a new direction—without re-querying the model or paying extra token costs for turns you have already run.
+Every turn is snapshotted automatically. You can rewind to any prior point and continue from there — **without re-sending old messages to the model**.
 
 <Tip>
-**Think of it like a save state in a video game.** You can save before entering a path, test an outcome, and jump back to the exact checkpoint if you want to try a different approach.
+**Think save states in a game.** Run a path, don't like the outcome? Branch back and try again. The first exchange stays cached.
 </Tip>
 
 ---

@@ -22,6 +22,7 @@
       {
         "group": "Getting Started",
         "pages": [
+          "introduction",
           "installation",
           "quickstart"
         ]
@@ -29,6 +30,8 @@
       {
         "group": "Core Concepts",
         "pages": [
+          "concepts/streaming",
+          "concepts/handoffs",
           "concepts/state-checkpointing",
           "concepts/schema-validation-recovery",
           "concepts/multi-step-rollback",
@@ -40,6 +43,7 @@
         "pages": [
           "api-reference/agent",
           "api-reference/define-tool",
+          "api-reference/handoff",
           "api-reference/providers",
           "api-reference/kenpachi"
         ]
