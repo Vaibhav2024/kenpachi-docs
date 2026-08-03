@@ -26,7 +26,7 @@ import { defineTool } from "kenpachi";
     </ResponseField>
 
     <ResponseField name="schema" type="z.ZodType<Args>" required>
-      Zod schema defining expected parameters.
+      Zod schema defining expected parameters. Automatically converted into standard JSON Schema (`type: "object"`, `properties`, `required`) for LLM model tool arrays via `serializeZodSchema`.
     </ResponseField>
 
     <ResponseField name="execute" type="(args: Args, ctx: ToolContext) => Promise<Result>" required>
@@ -34,7 +34,7 @@ import { defineTool } from "kenpachi";
     </ResponseField>
 
     <ResponseField name="repairable" type="boolean" default="true">
-      Whether `kenpachi` should attempt automatic argument coercion and repair on schema failures.
+      Whether `kenpachi` should attempt argument repair and retry on schema validation failures.
     </ResponseField>
   </Expandable>
 </ParamField>
@@ -52,3 +52,22 @@ The `execute` function receives a `ToolContext` instance as its second argument:
 <ResponseField name="registerCompensation" type="(undo: () => Promise<void>) => void">
   Function used to register a compensating action executed if a later tool call in the same batch fails.
 </ResponseField>
+
+---
+
+## Schema Serialization
+
+kenpachi includes a universal Zod schema serializer `serializeZodSchema(schema: z.ZodTypeAny)` that transforms any Zod definition into a standard JSON Schema object (`type: "object"`, `properties`, `required`), automatically stripping non-standard fields (like `$schema`) for LLM provider compliance:
+
+```typescript
+import { serializeZodSchema } from "kenpachi";
+import { z } from "zod";
+
+const jsonSchema = serializeZodSchema(
+  z.object({
+    city: z.string(),
+    forecastDays: z.number(),
+  })
+);
+// Output: { type: "object", properties: { city: { type: "string" }, forecastDays: { type: "number" } }, required: ["city", "forecastDays"] }
+```
